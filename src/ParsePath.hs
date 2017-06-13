@@ -1,7 +1,10 @@
-module ParsePath (Title(..), parsePath) where
+module ParsePath
+  ( Title(..)
+  , parsePath
+  ) where
 
-import Data.Char (isSpace)
-import Text.Regex.Applicative
+import           Data.Char              (isSpace)
+import           Text.Regex.Applicative
 
 -- regex = r'^.*?\[([^]]+)\]\s*([^([\s][^([]*)(?: - \[)?.*$'
 
@@ -19,7 +22,7 @@ filePathRE = many anySym *> sym '/' *> fileNameRE
 
 data Title = Title
   { parsedAuthor :: String
-  , parsedTitle :: String
+  , parsedTitle  :: String
   } deriving (Eq, Show)
 
 parsePath :: String -> Maybe Title
