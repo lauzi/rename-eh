@@ -18,13 +18,18 @@ library
   exposed-modules:     ParsePath
                      , ExPanda
   build-depends:       base >= 4.7 && < 5
-                     , regex-applicative
-                     , wreq
-                     , lens
+                     , aeson
                      , bytestring
+                     , HandsomeSoup
+                     , haskeline
                      , http-client
                      , http-client-tls
-                     , haskeline
+                     , hxt
+                     , lens
+                     , regex-applicative
+                     , text
+                     , time
+                     , wreq
   default-language:    Haskell2010
 
 executable rename-eh-exe
