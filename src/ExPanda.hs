@@ -67,7 +67,8 @@ cookies f jar = createCookieJar <$> f (destroyCookieJar jar)
 
 data LoginInfo = LoginInfo
   { username :: !String
-  , password :: !String } deriving (Show, Read, Eq)
+  , password :: !String
+  } deriving (Show, Read, Eq)
 
 
 -- | Asks for login info. Doesn't really care if it's valid or not.
@@ -260,7 +261,7 @@ searchHtml html = do
     maybeGetLink = ifA (hasAttr "class") getNothing getLink
     getMaybeLinks = css ".ptb td a" >>> maybeGetLink
 
-  matches <- runX $ doc >>> getMatches
+  matches   <- runX $ doc >>> getMatches
   nextPages <- runX $ doc >>> getMaybeLinks
 
   let nextPageUrl = last nextPages
@@ -299,7 +300,7 @@ instance FromJSON EhGallery where
     return EhGallery {..}
 
 
-newtype EhApiRequest = EhApiRequest [EhId]
+newtype EhApiRequest = EhApiRequest [EhId] deriving Show
 
 instance ToJSON EhApiRequest where
   toJSON (EhApiRequest ids) =
@@ -309,7 +310,7 @@ instance ToJSON EhApiRequest where
            ]
 
 
-data EhApiResponse = EhApiResponse [EhGallery] deriving Show
+newtype EhApiResponse = EhApiResponse [EhGallery] deriving Show
 
 instance FromJSON EhApiResponse where
   parseJSON = withObject "response" $ \v ->
@@ -368,15 +369,15 @@ parseGalleryPage :: String -> IO EhGallery
 parseGalleryPage html = do
   let
     doc = parseHtml html
-    getRating = getText >>> arr (read . drop 9)
 
     underscoreToSpace '_' = ' '
     underscoreToSpace c   = c
     fmtTag = map underscoreToSpace . drop 3
 
-    getTags = (css ".gt" <+> css ".gtl") ! "id" >>> arr fmtTag
-    getCategory = getAttrValue "alt" >>> arr readCategory
     getId = getAttrValue "href" >>> arr readEhId
+    getCategory = getAttrValue "alt" >>> arr readCategory
+    getRating = getText >>> arr (read . drop 9)
+    getTags = (css ".gt" <+> css ".gtl") ! "id" >>> arr fmtTag
 
   [englishTitle]  <- runX $ doc //> css "#gn" //> getText
   [japaneseTitle] <- runX $ doc //> css "#gj" //> getText
