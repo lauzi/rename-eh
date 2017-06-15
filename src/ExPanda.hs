@@ -43,8 +43,8 @@ import           Data.Text                (pack, unpack)
 import           Data.Time.Calendar       (fromGregorianValid)
 import           Data.Time.Clock          (UTCTime (..))
 import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
-import           Network.HTTP.Client      (CookieJar, createCookieJar,
-                                           destroyCookieJar)
+import           Network.HTTP.Client
+    (CookieJar, createCookieJar, destroyCookieJar)
 import           Network.HTTP.Client.TLS  (tlsManagerSettings)
 import           Network.Wreq             hiding ((:=), cookies)
 import qualified Network.Wreq             as Wreq (FormParam ((:=)))
@@ -54,6 +54,11 @@ import           Text.HandsomeSoup        (css, parseHtml, (!))
 import           Text.Read                (readMaybe)
 import           Text.Regex.Applicative
 import           Text.XML.HXT.Core        hiding (when)
+
+
+plzDon't :: String -> Maybe a -> a
+plzDon't errMsg Nothing = error errMsg
+plzDon't _ (Just x)     = x
 
 
 cookies :: Lens' CookieJar [Cookie]
@@ -148,9 +153,7 @@ instance ToJSON EhId where
   toJSON (EhId gid token) = toJSON [toJSON gid, toJSON token]
 
 readEhId :: String -> EhId
-readEhId s = case s =~ ehIdParser of
-  Nothing   -> error $ "Failed to parse eh url " ++ s
-  Just ehid -> ehid
+readEhId s = plzDon't ("Fail to parse eh url " ++ s) $ s =~ ehIdParser
 
 ehIdParser :: RE Char EhId
 ehIdParser = EhId <$> (shit *> gid) <*> slashed notSlash <* notSlash
@@ -261,7 +264,7 @@ searchHtml html = do
   nextPages <- runX $ doc >>> getMaybeLinks
 
   let nextPageUrl = last nextPages
-  return $ ResultPage {..}
+  return ResultPage {..}
 
 
 newtype Bytes = Bytes Int deriving (Show, Eq)
@@ -293,7 +296,7 @@ instance FromJSON EhGallery where
     pages         <- read <$> v .: "filecount"
     rating        <- read <$> v .: "rating"
     tags          <- v .: "tags"
-    return $ EhGallery {..}
+    return EhGallery {..}
 
 
 newtype EhApiRequest = EhApiRequest [EhId]
@@ -338,10 +341,10 @@ fetchGalleryPage sess ehid = do
 parseDate :: String -> Maybe UTCTime
 parseDate str = str =~ parser
   where
-    secs h min = realToFrac $ (h * 60 + min) * 60
-    tryRun = maybe (error "Can't parse date") id
+    secs h m = realToFrac $ (h * 60 + m) * 60
+    tryRun = plzDon't "Can't parse date"
     toDay y m d = tryRun $ fromGregorianValid y m d
-    makeTime y mon d h min = UTCTime (toDay y mon d) (secs h min)
+    makeTime y mon d h min' = UTCTime (toDay y mon d) (secs h min')
 
     -- we need 2 instances of the same shit cuz they have different types
     int = read <$> some (psym isDigit)
@@ -352,9 +355,11 @@ parseDate str = str =~ parser
 parseSize :: String -> Bytes
 parseSize str = Bytes . floor . (* mult unit) $ x
   where
-    mult "MB" = 1048575
+    mult "GB" = 1024 ** 3
+    mult "MB" = 1024 ** 2
     mult "KB" = 1024
     mult "B"  = 1
+    mult _    = error "WTF"
     [xStr, unit] = words str
     x = read xStr :: Double
 
@@ -373,14 +378,13 @@ parseGalleryPage html = do
     getCategory = getAttrValue "alt" >>> arr readCategory
     getId = getAttrValue "href" >>> arr readEhId
 
-  [englishTitle] <- runX $ doc //> css "#gn" //> getText
+  [englishTitle]  <- runX $ doc //> css "#gn" //> getText
   [japaneseTitle] <- runX $ doc //> css "#gj" //> getText
   (galleryId : _) <- runX $ doc //> css ".ptds a" >>> getId
-  [category] <- runX $ doc //> css "#gdc img" >>> getCategory
-  [rating] <- runX $ doc //> css "#rating_label" //> getRating
-  tags <- runX $ doc //> css "#taglist" >>> getTags
-
-  tableShit <- runX $ doc //> css ".gdt2" //> getText
+  [category]      <- runX $ doc //> css "#gdc img" >>> getCategory
+  [rating]        <- runX $ doc //> css "#rating_label" //> getRating
+  tags            <- runX $ doc //> css "#taglist" >>> getTags
+  tableShit       <- runX $ doc //> css ".gdt2" //> getText
 
   let
     [dateS, _, _, _, sizeS, pagesS, _] = tableShit
@@ -388,4 +392,4 @@ parseGalleryPage html = do
     fileSize = parseSize sizeS
     pages = read . head . words $ pagesS
 
-  return $ EhGallery {..}
+  return EhGallery {..}
