@@ -32,28 +32,29 @@ module ExPanda
   , parseGalleryPage
   ) where
 
-import           Control.Exception        (try)
-import           Data.Char                (isDigit)
-import           Data.List                (intercalate)
+import           Control.Exception          (try)
+import           Data.Char                  (isDigit)
+import           Data.List                  (intercalate)
 
-import           Control.Lens             hiding (deep, (.=), (<~))
+import           Control.Lens               hiding (deep, (.=), (<~))
 import           Data.Aeson
-import           Data.ByteString          (ByteString)
-import           Data.Text                (pack, unpack)
-import           Data.Time.Calendar       (fromGregorianValid)
-import           Data.Time.Clock          (UTCTime (..))
-import           Data.Time.Clock.POSIX    (posixSecondsToUTCTime)
+import           Data.ByteString            (ByteString)
+import qualified Data.ByteString.Lazy.Char8 as Char8
+import           Data.Text                  (pack, unpack)
+import           Data.Time.Calendar         (fromGregorianValid)
+import           Data.Time.Clock            (UTCTime (..))
+import           Data.Time.Clock.POSIX      (posixSecondsToUTCTime)
 import           Network.HTTP.Client
     (CookieJar, createCookieJar, destroyCookieJar)
-import           Network.HTTP.Client.TLS  (tlsManagerSettings)
-import           Network.Wreq             hiding ((:=), cookies)
-import qualified Network.Wreq             as Wreq (FormParam ((:=)))
-import qualified Network.Wreq.Session     as S
+import           Network.HTTP.Client.TLS    (tlsManagerSettings)
+import           Network.Wreq               hiding ((:=), cookies)
+import qualified Network.Wreq               as Wreq (FormParam ((:=)))
+import qualified Network.Wreq.Session       as S
 import           System.Console.Haskeline
-import           Text.HandsomeSoup        (css, parseHtml, (!))
-import           Text.Read                (readMaybe)
+import           Text.HandsomeSoup          (css, parseHtml, (!))
+import           Text.Read                  (readMaybe)
 import           Text.Regex.Applicative
-import           Text.XML.HXT.Core        hiding (when)
+import           Text.XML.HXT.Core          hiding (when)
 
 
 plzDon't :: String -> Maybe a -> a
@@ -235,13 +236,13 @@ searchOpts wat = defaults & params .~ pars
 search :: S.Session -> String -> IO ResultPage
 search sess wat = do
   r <- S.getWith (searchOpts wat) sess "https://exhentai.org/"
-  searchHtml . show $ r ^. responseBody
+  searchHtml . Char8.unpack $ r ^. responseBody
 
 nextSearchPage :: S.Session -> ResultPage -> IO (Maybe ResultPage)
 nextSearchPage _ (ResultPage _ Nothing) = return Nothing
 nextSearchPage sess (ResultPage _ (Just url)) = do
   r <- S.get sess url
-  page <- searchHtml . show $ r ^. responseBody
+  page <- searchHtml . Char8.unpack $ r ^. responseBody
   return $ Just page
 
 
@@ -337,7 +338,7 @@ queryApi req = do
 fetchGalleryPage :: S.Session -> EhId -> IO EhGallery
 fetchGalleryPage sess ehid = do
   response <- S.get sess (ehIdUrl ehid)
-  parseGalleryPage . show $ response ^. responseBody
+  parseGalleryPage . Char8.unpack $ response ^. responseBody
 
 parseDate :: String -> Maybe UTCTime
 parseDate str = str =~ parser
